@@ -86,7 +86,6 @@ export function createTextVNode (val: string | number) {
 // multiple renders, cloning them avoids errors when DOM manipulations rely
 // on their elm reference.
 export function cloneVNode (vnode: VNode, deep?: boolean): VNode {
-  const componentOptions = vnode.componentOptions
   const cloned = new VNode(
     vnode.tag,
     vnode.data,
@@ -94,7 +93,7 @@ export function cloneVNode (vnode: VNode, deep?: boolean): VNode {
     vnode.text,
     vnode.elm,
     vnode.context,
-    componentOptions,
+    vnode.componentOptions,
     vnode.asyncFactory
   )
   cloned.ns = vnode.ns
@@ -102,13 +101,8 @@ export function cloneVNode (vnode: VNode, deep?: boolean): VNode {
   cloned.key = vnode.key
   cloned.isComment = vnode.isComment
   cloned.isCloned = true
-  if (deep) {
-    if (vnode.children) {
-      cloned.children = cloneVNodes(vnode.children, true)
-    }
-    if (componentOptions && componentOptions.children) {
-      componentOptions.children = cloneVNodes(componentOptions.children, true)
-    }
+  if (deep && vnode.children) {
+    cloned.children = cloneVNodes(vnode.children)
   }
   return cloned
 }

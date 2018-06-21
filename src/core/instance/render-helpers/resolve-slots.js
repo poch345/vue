@@ -11,6 +11,7 @@ export function resolveSlots (
   if (!children) {
     return slots
   }
+  const defaultSlot = []
   for (let i = 0, l = children.length; i < l; i++) {
     const child = children[i]
     const data = child.data
@@ -31,14 +32,12 @@ export function resolveSlots (
         slot.push(child)
       }
     } else {
-      (slots.default || (slots.default = [])).push(child)
+      defaultSlot.push(child)
     }
   }
-  // ignore slots that contains only whitespace
-  for (const name in slots) {
-    if (slots[name].every(isWhitespace)) {
-      delete slots[name]
-    }
+  // ignore whitespace
+  if (!defaultSlot.every(isWhitespace)) {
+    slots.default = defaultSlot
   }
   return slots
 }
