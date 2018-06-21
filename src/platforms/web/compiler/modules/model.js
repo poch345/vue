@@ -29,6 +29,8 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       const typeBinding: any = getBindingAttr(el, 'type')
       const ifCondition = getAndRemoveAttr(el, 'v-if', true)
       const ifConditionExtra = ifCondition ? `&&(${ifCondition})` : ``
+      const hasElse = getAndRemoveAttr(el, 'v-else', true) != null
+      const elseIfCondition = getAndRemoveAttr(el, 'v-else-if', true)
       // 1. checkbox
       const branch0 = cloneASTElement(el)
       // process for on the main node
@@ -36,7 +38,7 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       addRawAttr(branch0, 'type', 'checkbox')
       processElement(branch0, options)
       branch0.processed = true // prevent it from double-processed
-      branch0.if = `type==='checkbox'` + ifConditionExtra
+      branch0.if = `(${typeBinding})==='checkbox'` + ifConditionExtra
       addIfCondition(branch0, {
         exp: branch0.if,
         block: branch0
@@ -47,7 +49,7 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       addRawAttr(branch1, 'type', 'radio')
       processElement(branch1, options)
       addIfCondition(branch0, {
-        exp: `type==='radio'` + ifConditionExtra,
+        exp: `(${typeBinding})==='radio'` + ifConditionExtra,
         block: branch1
       })
       // 3. other
@@ -59,6 +61,13 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
         exp: ifCondition,
         block: branch2
       })
+
+      if (hasElse) {
+        branch0.else = true
+      } else if (elseIfCondition) {
+        branch0.elseif = elseIfCondition
+      }
+
       return branch0
     }
   }

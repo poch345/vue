@@ -4,15 +4,15 @@ describe('Directive v-model dynamic input type', () => {
   it('should work', done => {
     const vm = new Vue({
       data: {
-        type: null,
+        inputType: null,
         test: 'b'
       },
-      template: `<input :type="type" v-model="test">`
+      template: `<input :type="inputType" v-model="test">`
     }).$mount()
     document.body.appendChild(vm.$el)
 
     // test text
-    assertInputWorks(vm).then(done)
+    assertInputWorks(vm, 'inputType').then(done)
   })
 
   it('with v-if', done => {
@@ -35,6 +35,48 @@ describe('Directive v-model dynamic input type', () => {
       vm.ok = true
       vm.type = null
       vm.test = 'b'
+    })
+
+    assertInputWorks(vm, chain).then(done)
+  })
+
+  it('with v-else', done => {
+    const data = {
+      ok: true,
+      type: null,
+      test: 'b'
+    }
+    const vm = new Vue({
+      data,
+      template: `<div v-if="ok">haha</div><input v-else :type="type" v-model="test">`
+    }).$mount()
+    document.body.appendChild(vm.$el)
+    expect(vm.$el.textContent).toBe('haha')
+
+    vm.ok = false
+    assertInputWorks(vm).then(done)
+  })
+
+  it('with v-else-if', done => {
+    const vm = new Vue({
+      data: {
+        foo: true,
+        bar: false,
+        type: null,
+        test: 'b'
+      },
+      template: `<div v-if="foo">text</div><input v-else-if="bar" :type="type" v-model="test">`
+    }).$mount()
+    document.body.appendChild(vm.$el)
+
+    const chain = waitForUpdate(() => {
+      expect(vm.$el.textContent).toBe('text')
+    }).then(() => {
+      vm.foo = false
+    }).then(() => {
+      expect(vm._vnode.isComment).toBe(true)
+    }).then(() => {
+      vm.bar = true
     })
 
     assertInputWorks(vm, chain).then(done)
@@ -87,7 +129,11 @@ describe('Directive v-model dynamic input type', () => {
   })
 })
 
-function assertInputWorks (vm, chain) {
+function assertInputWorks (vm, type, chain) {
+  if (typeof type !== 'string') {
+    if (!chain) chain = type
+    type = 'type'
+  }
   if (!chain) chain = waitForUpdate()
   chain.then(() => {
     expect(vm.$el.value).toBe('b')
@@ -99,7 +145,7 @@ function assertInputWorks (vm, chain) {
     expect(vm.test).toBe('c')
   }).then(() => {
     // change it to password
-    vm.type = 'password'
+    vm[type] = 'password'
     vm.test = 'b'
   }).then(() => {
     expect(vm.$el.type).toBe('password')
@@ -109,7 +155,7 @@ function assertInputWorks (vm, chain) {
     expect(vm.test).toBe('c')
   }).then(() => {
     // change it to checkbox...
-    vm.type = 'checkbox'
+    vm[type] = 'checkbox'
   }).then(() => {
     expect(vm.$el.type).toBe('checkbox')
     expect(vm.$el.checked).toBe(true)
