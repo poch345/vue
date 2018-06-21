@@ -107,7 +107,6 @@ export function parse (
     isUnaryTag: options.isUnaryTag,
     canBeLeftOpenTag: options.canBeLeftOpenTag,
     shouldDecodeNewlines: options.shouldDecodeNewlines,
-    shouldDecodeNewlinesForHref: options.shouldDecodeNewlinesForHref,
     shouldKeepComment: options.comments,
     start (tag, attrs, unary) {
       // check namespace.
@@ -467,7 +466,7 @@ function processSlot (el) {
       el.slotTarget = slotTarget === '""' ? '"default"' : slotTarget
       // preserve slot as an attribute for native shadow DOM compat
       // only for non-scoped slots.
-      if (el.tag !== 'template' && !el.slotScope) {
+      if (!el.slotScope) {
         addAttr(el, 'slot', slotTarget)
       }
     }
@@ -556,13 +555,6 @@ function processAttrs (el) {
         }
       }
       addAttr(el, name, JSON.stringify(value))
-      // #6887 firefox doesn't update muted state if set via attribute
-      // even immediately after element creation
-      if (!el.component &&
-          name === 'muted' &&
-          platformMustUseProp(el.tag, el.attrsMap.type, name)) {
-        addProp(el, name, 'true')
-      }
     }
   }
 }

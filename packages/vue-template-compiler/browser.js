@@ -320,11 +320,10 @@ var decodingMap = {
   '&gt;': '>',
   '&quot;': '"',
   '&amp;': '&',
-  '&#10;': '\n',
-  '&#9;': '\t'
+  '&#10;': '\n'
 };
 var encodedAttr = /&(?:lt|gt|quot|amp);/g;
-var encodedAttrWithNewLines = /&(?:lt|gt|quot|amp|#10|#9);/g;
+var encodedAttrWithNewLines = /&(?:lt|gt|quot|amp|#10);/g;
 
 // #5992
 var isIgnoreNewlineTag = makeMap('pre,textarea', true);
@@ -515,12 +514,12 @@ function parseHTML (html, options) {
         if (args[5] === '') { delete args[5]; }
       }
       var value = args[3] || args[4] || args[5] || '';
-      var shouldDecodeNewlines = tagName === 'a' && args[1] === 'href'
-        ? options.shouldDecodeNewlinesForHref
-        : options.shouldDecodeNewlines;
       attrs[i] = {
         name: args[1],
-        value: decodeAttr(value, shouldDecodeNewlines)
+        value: decodeAttr(
+          value,
+          options.shouldDecodeNewlines
+        )
       };
     }
 
@@ -725,92 +724,6 @@ function def (obj, key, val, enumerable) {
   });
 }
 
-/*  */
-
-// can we use __proto__?
-var hasProto = '__proto__' in {};
-
-// Browser environment sniffing
-var inBrowser = typeof window !== 'undefined';
-var UA = inBrowser && window.navigator.userAgent.toLowerCase();
-var isIE = UA && /msie|trident/.test(UA);
-var isIE9 = UA && UA.indexOf('msie 9.0') > 0;
-var isEdge = UA && UA.indexOf('edge/') > 0;
-var isAndroid = UA && UA.indexOf('android') > 0;
-var isIOS = UA && /iphone|ipad|ipod|ios/.test(UA);
-var isChrome = UA && /chrome\/\d+/.test(UA) && !isEdge;
-
-// Firefox has a "watch" function on Object.prototype...
-var nativeWatch = ({}).watch;
-
-
-if (inBrowser) {
-  try {
-    var opts = {};
-    Object.defineProperty(opts, 'passive', ({
-      get: function get () {
-        /* istanbul ignore next */
-        
-      }
-    })); // https://github.com/facebook/flow/issues/285
-    window.addEventListener('test-passive', null, opts);
-  } catch (e) {}
-}
-
-// this needs to be lazy-evaled because vue may be required before
-// vue-server-renderer can set VUE_ENV
-var _isServer;
-var isServerRendering = function () {
-  if (_isServer === undefined) {
-    /* istanbul ignore if */
-    if (!inBrowser && typeof global !== 'undefined') {
-      // detect presence of vue-server-renderer and avoid
-      // Webpack shimming the process
-      _isServer = global['process'].env.VUE_ENV === 'server';
-    } else {
-      _isServer = false;
-    }
-  }
-  return _isServer
-};
-
-// detect devtools
-
-
-/* istanbul ignore next */
-function isNative (Ctor) {
-  return typeof Ctor === 'function' && /native code/.test(Ctor.toString())
-}
-
-var hasSymbol =
-  typeof Symbol !== 'undefined' && isNative(Symbol) &&
-  typeof Reflect !== 'undefined' && isNative(Reflect.ownKeys);
-
-var _Set;
-/* istanbul ignore if */ // $flow-disable-line
-if (typeof Set !== 'undefined' && isNative(Set)) {
-  // use native Set when available.
-  _Set = Set;
-} else {
-  // a non-standard Set polyfill that only works with primitive keys.
-  _Set = (function () {
-    function Set () {
-      this.set = Object.create(null);
-    }
-    Set.prototype.has = function has (key) {
-      return this.set[key] === true
-    };
-    Set.prototype.add = function add (key) {
-      this.set[key] = true;
-    };
-    Set.prototype.clear = function clear () {
-      this.set = Object.create(null);
-    };
-
-    return Set;
-  }());
-}
-
 var ASSET_TYPES = [
   'component',
   'directive',
@@ -1011,6 +924,220 @@ var formatComponentName = (noop);
       return ("\n\n(found in " + (formatComponentName(vm)) + ")")
     }
   };
+}
+
+/*  */
+
+function handleError (err, vm, info) {
+  if (vm) {
+    var cur = vm;
+    while ((cur = cur.$parent)) {
+      var hooks = cur.$options.errorCaptured;
+      if (hooks) {
+        for (var i = 0; i < hooks.length; i++) {
+          try {
+            var capture = hooks[i].call(cur, err, vm, info) === false;
+            if (capture) { return }
+          } catch (e) {
+            globalHandleError(e, cur, 'errorCaptured hook');
+          }
+        }
+      }
+    }
+  }
+  globalHandleError(err, vm, info);
+}
+
+function globalHandleError (err, vm, info) {
+  if (config.errorHandler) {
+    try {
+      return config.errorHandler.call(null, err, vm, info)
+    } catch (e) {
+      logError(e, null, 'config.errorHandler');
+    }
+  }
+  logError(err, vm, info);
+}
+
+function logError (err, vm, info) {
+  {
+    warn(("Error in " + info + ": \"" + (err.toString()) + "\""), vm);
+  }
+  /* istanbul ignore else */
+  if (inBrowser && typeof console !== 'undefined') {
+    console.error(err);
+  } else {
+    throw err
+  }
+}
+
+/*  */
+/* globals MessageChannel */
+
+// can we use __proto__?
+var hasProto = '__proto__' in {};
+
+// Browser environment sniffing
+var inBrowser = typeof window !== 'undefined';
+var UA = inBrowser && window.navigator.userAgent.toLowerCase();
+var isIE = UA && /msie|trident/.test(UA);
+var isIE9 = UA && UA.indexOf('msie 9.0') > 0;
+var isEdge = UA && UA.indexOf('edge/') > 0;
+var isAndroid = UA && UA.indexOf('android') > 0;
+var isIOS = UA && /iphone|ipad|ipod|ios/.test(UA);
+var isChrome = UA && /chrome\/\d+/.test(UA) && !isEdge;
+
+// Firefox has a "watch" function on Object.prototype...
+var nativeWatch = ({}).watch;
+
+
+if (inBrowser) {
+  try {
+    var opts = {};
+    Object.defineProperty(opts, 'passive', ({
+      get: function get () {
+        /* istanbul ignore next */
+        
+      }
+    })); // https://github.com/facebook/flow/issues/285
+    window.addEventListener('test-passive', null, opts);
+  } catch (e) {}
+}
+
+// this needs to be lazy-evaled because vue may be required before
+// vue-server-renderer can set VUE_ENV
+var _isServer;
+var isServerRendering = function () {
+  if (_isServer === undefined) {
+    /* istanbul ignore if */
+    if (!inBrowser && typeof global !== 'undefined') {
+      // detect presence of vue-server-renderer and avoid
+      // Webpack shimming the process
+      _isServer = global['process'].env.VUE_ENV === 'server';
+    } else {
+      _isServer = false;
+    }
+  }
+  return _isServer
+};
+
+// detect devtools
+
+
+/* istanbul ignore next */
+function isNative (Ctor) {
+  return typeof Ctor === 'function' && /native code/.test(Ctor.toString())
+}
+
+var hasSymbol =
+  typeof Symbol !== 'undefined' && isNative(Symbol) &&
+  typeof Reflect !== 'undefined' && isNative(Reflect.ownKeys);
+
+/**
+ * Defer a task to execute it asynchronously.
+ */
+var nextTick = (function () {
+  var callbacks = [];
+  var pending = false;
+  var timerFunc;
+
+  function nextTickHandler () {
+    pending = false;
+    var copies = callbacks.slice(0);
+    callbacks.length = 0;
+    for (var i = 0; i < copies.length; i++) {
+      copies[i]();
+    }
+  }
+
+  // An asynchronous deferring mechanism.
+  // In pre 2.4, we used to use microtasks (Promise/MutationObserver)
+  // but microtasks actually has too high a priority and fires in between
+  // supposedly sequential events (e.g. #4521, #6690) or even between
+  // bubbling of the same event (#6566). Technically setImmediate should be
+  // the ideal choice, but it's not available everywhere; and the only polyfill
+  // that consistently queues the callback after all DOM events triggered in the
+  // same loop is by using MessageChannel.
+  /* istanbul ignore if */
+  if (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
+    timerFunc = function () {
+      setImmediate(nextTickHandler);
+    };
+  } else if (typeof MessageChannel !== 'undefined' && (
+    isNative(MessageChannel) ||
+    // PhantomJS
+    MessageChannel.toString() === '[object MessageChannelConstructor]'
+  )) {
+    var channel = new MessageChannel();
+    var port = channel.port2;
+    channel.port1.onmessage = nextTickHandler;
+    timerFunc = function () {
+      port.postMessage(1);
+    };
+  } else
+  /* istanbul ignore next */
+  if (typeof Promise !== 'undefined' && isNative(Promise)) {
+    // use microtask in non-DOM environments, e.g. Weex
+    var p = Promise.resolve();
+    timerFunc = function () {
+      p.then(nextTickHandler);
+    };
+  } else {
+    // fallback to setTimeout
+    timerFunc = function () {
+      setTimeout(nextTickHandler, 0);
+    };
+  }
+
+  return function queueNextTick (cb, ctx) {
+    var _resolve;
+    callbacks.push(function () {
+      if (cb) {
+        try {
+          cb.call(ctx);
+        } catch (e) {
+          handleError(e, ctx, 'nextTick');
+        }
+      } else if (_resolve) {
+        _resolve(ctx);
+      }
+    });
+    if (!pending) {
+      pending = true;
+      timerFunc();
+    }
+    // $flow-disable-line
+    if (!cb && typeof Promise !== 'undefined') {
+      return new Promise(function (resolve, reject) {
+        _resolve = resolve;
+      })
+    }
+  }
+})();
+
+var _Set;
+/* istanbul ignore if */ // $flow-disable-line
+if (typeof Set !== 'undefined' && isNative(Set)) {
+  // use native Set when available.
+  _Set = Set;
+} else {
+  // a non-standard Set polyfill that only works with primitive keys.
+  _Set = (function () {
+    function Set () {
+      this.set = Object.create(null);
+    }
+    Set.prototype.has = function has (key) {
+      return this.set[key] === true
+    };
+    Set.prototype.add = function add (key) {
+      this.set[key] = true;
+    };
+    Set.prototype.clear = function clear () {
+      this.set = Object.create(null);
+    };
+
+    return Set;
+  }());
 }
 
 /*  */
@@ -1329,7 +1456,7 @@ function set (target, key, val) {
     target.splice(key, 1, val);
     return val
   }
-  if (key in target && !(key in Object.prototype)) {
+  if (hasOwn(target, key)) {
     target[key] = val;
     return val
   }
@@ -1440,7 +1567,7 @@ function mergeDataOrFn (
         typeof parentVal === 'function' ? parentVal.call(this) : parentVal
       )
     }
-  } else {
+  } else if (parentVal || childVal) {
     return function mergedInstanceDataFn () {
       // instance merge
       var instanceData = typeof childVal === 'function'
@@ -1474,7 +1601,7 @@ strats.data = function (
 
       return parentVal
     }
-    return mergeDataOrFn(parentVal, childVal)
+    return mergeDataOrFn.call(this, parentVal, childVal)
   }
 
   return mergeDataOrFn(parentVal, childVal, vm)
@@ -1617,54 +1744,6 @@ function assertObjectType (name, value, vm) {
  */
 
 /*  */
-
-/*  */
-
-/*  */
-/* globals MessageChannel */
-
-var callbacks = [];
-function flushCallbacks () {
-  var copies = callbacks.slice(0);
-  callbacks.length = 0;
-  for (var i = 0; i < copies.length; i++) {
-    copies[i]();
-  }
-}
-
-// Determine (macro) Task defer implementation.
-// Technically setImmediate should be the ideal choice, but it's only available
-// in IE. The only polyfill that consistently queues the callback after all DOM
-// events triggered in the same loop is by using MessageChannel.
-/* istanbul ignore if */
-if (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
-  
-} else if (typeof MessageChannel !== 'undefined' && (
-  isNative(MessageChannel) ||
-  // PhantomJS
-  MessageChannel.toString() === '[object MessageChannelConstructor]'
-)) {
-  var channel = new MessageChannel();
-  channel.port1.onmessage = flushCallbacks;
-  
-} else {
-  /* istanbul ignore next */
-  
-}
-
-// Determine MicroTask defer implementation.
-/* istanbul ignore next, $flow-disable-line */
-if (typeof Promise !== 'undefined' && isNative(Promise)) {
-  
-} else {
-  // fallback to macro
-  
-}
-
-/**
- * Wrap a function so that if any code inside triggers state change,
- * the changes are queued using a Task instead of a MicroTask.
- */
 
 /*  */
 
@@ -2722,7 +2801,6 @@ function parse (
     isUnaryTag: options.isUnaryTag,
     canBeLeftOpenTag: options.canBeLeftOpenTag,
     shouldDecodeNewlines: options.shouldDecodeNewlines,
-    shouldDecodeNewlinesForHref: options.shouldDecodeNewlinesForHref,
     shouldKeepComment: options.comments,
     start: function start (tag, attrs, unary) {
       // check namespace.
@@ -3081,7 +3159,7 @@ function processSlot (el) {
       el.slotTarget = slotTarget === '""' ? '"default"' : slotTarget;
       // preserve slot as an attribute for native shadow DOM compat
       // only for non-scoped slots.
-      if (el.tag !== 'template' && !el.slotScope) {
+      if (!el.slotScope) {
         addAttr(el, 'slot', slotTarget);
       }
     }
@@ -3170,13 +3248,6 @@ function processAttrs (el) {
         }
       }
       addAttr(el, name, JSON.stringify(value));
-      // #6887 firefox doesn't update muted state if set via attribute
-      // even immediately after element creation
-      if (!el.component &&
-          name === 'muted' &&
-          platformMustUseProp(el.tag, el.attrsMap.type, name)) {
-        addProp(el, name, 'true');
-      }
     }
   }
 }
@@ -3281,8 +3352,6 @@ function preTransformNode (el, options) {
       var typeBinding = getBindingAttr(el, 'type');
       var ifCondition = getAndRemoveAttr(el, 'v-if', true);
       var ifConditionExtra = ifCondition ? ("&&(" + ifCondition + ")") : "";
-      var hasElse = getAndRemoveAttr(el, 'v-else', true) != null;
-      var elseIfCondition = getAndRemoveAttr(el, 'v-else-if', true);
       // 1. checkbox
       var branch0 = cloneASTElement(el);
       // process for on the main node
@@ -3290,7 +3359,7 @@ function preTransformNode (el, options) {
       addRawAttr(branch0, 'type', 'checkbox');
       processElement(branch0, options);
       branch0.processed = true; // prevent it from double-processed
-      branch0.if = "(" + typeBinding + ")==='checkbox'" + ifConditionExtra;
+      branch0.if = "type==='checkbox'" + ifConditionExtra;
       addIfCondition(branch0, {
         exp: branch0.if,
         block: branch0
@@ -3301,7 +3370,7 @@ function preTransformNode (el, options) {
       addRawAttr(branch1, 'type', 'radio');
       processElement(branch1, options);
       addIfCondition(branch0, {
-        exp: "(" + typeBinding + ")==='radio'" + ifConditionExtra,
+        exp: "type==='radio'" + ifConditionExtra,
         block: branch1
       });
       // 3. other
@@ -3313,13 +3382,6 @@ function preTransformNode (el, options) {
         exp: ifCondition,
         block: branch2
       });
-
-      if (hasElse) {
-        branch0.else = true;
-      } else if (elseIfCondition) {
-        branch0.elseif = elseIfCondition;
-      }
-
       return branch0
     }
   }
@@ -3351,7 +3413,6 @@ var warn$2;
 // in some cases, the event used has to be determined at runtime
 // so we used some reserved tokens during compile.
 var RANGE_TOKEN = '__r';
-
 
 function model$1 (
   el,
@@ -4602,10 +4663,6 @@ function applyModelTransform (el, state) {
       var dir = el.directives[i];
       if (dir.name === 'model') {
         state.directives.model(el, dir, state.warn);
-        // remove value for textarea as its converted to text
-        if (el.tag === 'textarea' && el.props) {
-          el.props = el.props.filter(function (p) { return p.name !== 'value'; });
-        }
         break
       }
     }
@@ -4753,7 +4810,7 @@ function walk (node, isRoot) {
     if (node.ifConditions) {
       for (var i$1 = 1, l$1 = node.ifConditions.length; i$1 < l$1; i$1++) {
         var block = node.ifConditions[i$1].block;
-        walk(block, isRoot);
+        walk(block);
         check(block);
       }
     }
@@ -4811,8 +4868,7 @@ function isUnOptimizableTree (node) {
   return (
     isBuiltInTag(node.tag) || // built-in (slot, component)
     !isPlatformReservedTag$1(node.tag) || // custom component
-    !!node.component || // "is" component
-    isSelectWithModel(node) // <select v-model> requires runtime inspection
+    !!node.component // "is" component
   )
 }
 
@@ -4823,17 +4879,6 @@ function hasCustomDirective (node) {
     node.type === 1 &&
     node.directives &&
     node.directives.some(function (d) { return !isBuiltInDir(d.name); })
-  )
-}
-
-// <select v-model> cannot be optimized because it requires a runtime check
-// to determine proper selected option
-function isSelectWithModel (node) {
-  return (
-    node.type === 1 &&
-    node.tag === 'select' &&
-    node.directives != null &&
-    node.directives.some(function (d) { return d.name === 'model'; })
   )
 }
 
@@ -5008,9 +5053,6 @@ function childrenToSegments (el, state) {
     return [{ type: EXPRESSION, value: ("_s(" + binding + ")") }]
   }
   if ((binding = el.attrsMap['v-text'])) {
-    return [{ type: INTERPOLATION, value: ("_s(" + binding + ")") }]
-  }
-  if (el.tag === 'textarea' && (binding = el.attrsMap['v-model'])) {
     return [{ type: INTERPOLATION, value: ("_s(" + binding + ")") }]
   }
   return el.children

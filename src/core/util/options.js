@@ -89,7 +89,7 @@ export function mergeDataOrFn (
         typeof parentVal === 'function' ? parentVal.call(this) : parentVal
       )
     }
-  } else {
+  } else if (parentVal || childVal) {
     return function mergedInstanceDataFn () {
       // instance merge
       const instanceData = typeof childVal === 'function'
@@ -123,7 +123,7 @@ strats.data = function (
 
       return parentVal
     }
-    return mergeDataOrFn(parentVal, childVal)
+    return mergeDataOrFn.call(this, parentVal, childVal)
   }
 
   return mergeDataOrFn(parentVal, childVal, vm)
@@ -286,7 +286,7 @@ function normalizeProps (options: Object, vm: ?Component) {
         ? val
         : { type: val }
     }
-  } else if (process.env.NODE_ENV !== 'production') {
+  } else if (process.env.NODE_ENV !== 'production' && props) {
     warn(
       `Invalid value for option "props": expected an Array or an Object, ` +
       `but got ${toRawType(props)}.`,
